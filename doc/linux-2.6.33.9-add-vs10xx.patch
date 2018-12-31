@@ -1,0 +1,125 @@
+#
+# This patch demonstrates how to add board support for VS10XX. The at91sam9260-ek
+# board config is taken as example. Support for the AT73C213 codec is replaced with
+# support for the VS10XX. Pin assignments in this patch may vary with the board
+# variant that you use. Verify the configuration before using this patch.
+# 
+
+diff -Naur linux-2.6.33.9/arch/arm/mach-at91/board-sam9260ek.c linux-2.6.33.9-patched/arch/arm/mach-at91/board-sam9260ek.c
+--- linux-2.6.33.9/arch/arm/mach-at91/board-sam9260ek.c	2011-03-28 16:33:22.000000000 +0200
++++ linux-2.6.33.9-patched/arch/arm/mach-at91/board-sam9260ek.c	2013-01-20 18:54:11.465972862 +0100
+@@ -92,37 +92,34 @@
+ 
+ 
+ /*
+- * Audio
++ * Audio: VS10XX Devices
+  */
+-static struct at73c213_board_info at73c213_data = {
+-	.ssc_id		= 0,
+-	.shortname	= "AT91SAM9260-EK external DAC",
+-};
+-
+-#if defined(CONFIG_SND_AT73C213) || defined(CONFIG_SND_AT73C213_MODULE)
+-static void __init at73c213_set_clk(struct at73c213_board_info *info)
+-{
+-	struct clk *pck0;
+-	struct clk *plla;
+-
+-	pck0 = clk_get(NULL, "pck0");
+-	plla = clk_get(NULL, "plla");
+-
+-	/* AT73C213 MCK Clock */
+-	at91_set_B_periph(AT91_PIN_PC1, 0);	/* PCK0 */
+ 
+-	clk_set_parent(pck0, plla);
+-	clk_put(plla);
+-
+-	info->dac_clk = pck0;
+-}
+-#else
+-static void __init at73c213_set_clk(struct at73c213_board_info *info) {}
++struct vs10xx_board_info {
++	int device_id;
++	int gpio_reset;
++	int gpio_dreq;
++};
++
++struct vs10xx_board_info vs10xx_device_0 = {
++	.device_id  = 0,             // = /dev/vs10xx-0
++	.gpio_reset = AT91_PIN_PB16, // = GPIO 80
++	.gpio_dreq  = AT91_PIN_PB17, // = GPIO 81
++};
++
++#if 0
++struct vs10xx_board_info vs10xx_device_1 = {
++	.device_id  = 1,             // = /dev/vs10xx-1
++	.gpio_reset = AT91_PIN_PB18, // = GPIO 82
++	.gpio_dreq  = AT91_PIN_PB19, // = GPIO 83
++};
+ #endif
+ 
+ /*
+  * SPI devices.
+  */
++
++/*
+ static struct spi_board_info ek_spi_devices[] = {
+ #if !defined(CONFIG_MMC_AT91)
+ 	{	/* DataFlash chip */
+@@ -140,14 +137,37 @@
+ 	},
+ #endif
+ #endif
+-#if defined(CONFIG_SND_AT73C213) || defined(CONFIG_SND_AT73C213_MODULE)
+-	{	/* AT73C213 DAC */
+-		.modalias	= "at73c213",
+-		.chip_select	= 0,
+-		.max_speed_hz	= 10 * 1000 * 1000,
+-		.bus_num	= 1,
+-		.mode		= SPI_MODE_1,
+-		.platform_data	= &at73c213_data,
++
++		/* VS10XX Devices */
++
++	{	/* SPI device 0 on bus 1, cs 0 */
++		.modalias      = "vs10xx-ctrl",
++		.bus_num       = 1,
++		.chip_select   = 0,
++		.platform_data = &vs10xx_device_0,
++		.max_speed_hz   = 1 * 1000 * 1000,
++	},
++	{	/* SPI device 0 on bus 1, cs 1 */
++		.modalias      = "vs10xx-data",
++		.bus_num       = 1,
++		.chip_select   = 1,
++		.platform_data = &vs10xx_device_0,
++		.max_speed_hz   = 12 * 1000 * 1000,
++	},
++#if 0
++	{	/* SPI device 1 on bus 1, cs 2 */
++		.modalias      = "vs10xx-ctrl",
++		.bus_num       = 1,
++		.chip_select   = 2,
++		.platform_data = &vs10xx_device_1,
++		.max_speed_hz   = 2 * 1000 * 1000,
++	},
++	{	/* SPI device 1 on bus 1, cs 3 */
++		.modalias      = "vs10xx-data",
++		.bus_num       = 1,
++		.chip_select   = 3,
++		.platform_data = &vs10xx_device_1,
++		.max_speed_hz   = 15 * 1000 * 1000,
+ 	},
+ #endif
+ };
+@@ -345,9 +365,6 @@
+ 	at91_add_device_mmc(0, &ek_mmc_data);
+ 	/* I2C */
+ 	at91_add_device_i2c(ek_i2c_devices, ARRAY_SIZE(ek_i2c_devices));
+-	/* SSC (to AT73C213) */
+-	at73c213_set_clk(&at73c213_data);
+-	at91_add_device_ssc(AT91SAM9260_ID_SSC, ATMEL_SSC_TX);
+ 	/* LEDs */
+ 	at91_gpio_leds(ek_leds, ARRAY_SIZE(ek_leds));
+ 	/* Push Buttons */
